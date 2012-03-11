@@ -2,6 +2,7 @@ require 'tempfile'
 require 'nokogiri'
 require 'tempfile'
 require 'open-uri'
+require 'json'
 
 module GitGov
   
@@ -13,11 +14,11 @@ module GitGov
       
       attr_reader :source_url
 
-      def initialize(key, repo )
+      def initialize(key)
         @key = key
         @type = :bill
         @source_url = "http://clerk.seattle.gov/~scripts/nph-brs.exe?d=ORDF&s1=#{@key}.cbn.&Sect6=HITOFF&l=20&p=1&u=/~public/cbory.htm&r=1&f=G"
-        @repo = repo
+        @repo = GitGov::Repos::Seattle.new(GitGov::repo_list['seattle'])
 
       end
 
@@ -137,6 +138,13 @@ module GitGov
 
       end
 
+      def save_metadata
+        md = metadata_location(:repo)
+        puts md
+        FileUtils.mkdir_p( File.dirname(md) ) unless File.directory? File.dirname(md)
+        File.open(md, 'w') {|f| f.write(normalize_header[:metadata].to_json) }
+      end
+
       private
       def is_hrule?(line)
         line.chomp.eql? "* * * * *"
@@ -159,8 +167,8 @@ module GitGov
           :vote => /^\*\*Vote:\*\* (?<h_val>.*) \\/,
           :electronic_copy => /^\*\*Electronic Copy:\*\* (?<h_val>.*)/,
           :note => /^\*\*Note:\*\* (?<h_val>.*)/,
-          :status => /\*\*Status:\*\* ((?<h_val>.*))/,
-          :committee_vote => /^\*\*Committee Vote:\*\* (?<h_val>.*) \\?/,
+          :status => /\*\*Status:\*\* ((?<h_val>.*) ?\\\\?)/,
+          :committee_vote => /^\*\*Committee Vote:\*\* (?<h_val>.*) (\\{1,2})?/,
           :committee_recommendation => /^\*\*Committee Recommendation:\*\* (?<h_val>.*) \\?/,
           :date_of_committee_recommendation => /^\*\*Date of Committee Recommendation:\*\* (?<h_val>.*) \\?/ 
         }
@@ -182,12 +190,29 @@ module GitGov
         }
       end
 
+
+      def bucket
+        ((@key.to_i/1000).floor*1000).to_s
+      end
+
+      def metadata_location(type)
+        case type
+
+        when :relative
+          File.join(@type.to_s,bucket,'metadata', "#{@key}.json")
+        when :repo
+          File.join(repo.repo_path,metadata_location(:relative))
+        else
+          raise NotImplemented, "#{type} is not a valid location type"
+        end
+      end
+
       def location(type)
 
         case type
 
         when :relative
-          File.join(@type.to_s,@key.to_i.floor,"#{@key}.md")
+          File.join(@type.to_s,bucket,"#{@key}.md")
         when :repo
           File.join(repo.repo_path,location(:relative))
         else

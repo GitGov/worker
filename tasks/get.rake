@@ -1,6 +1,4 @@
-
-
-
+require 'json'
 class BillNotFoundException < RuntimeError
 
 end
@@ -23,21 +21,21 @@ namespace :seattle do
 
 		desc "Update the bill repo"
 		task :update, [] => :environment do |task, args|
-			log.info("Opening repository at #{REPO_BASE}")
-			repo = GitGov::Repo.new(REPO_BASE)
+			GitGov::log.info("Opening repository at #{REPO_BASE}")
+			repo = GitGov::Repos::Seattle.new()
 			current_bill = (repo.last_item :bill) + 1
-			log.info("Current bill is #{current_bill}")
+			GitGov::log.info("Current bill is #{current_bill}")
 			try_count = 0
 			while true
-				bill = GitGov::Models::SeattleBill.new(current_bill,repo)
+				bill = GitGov::Models::SeattleBill.new(current_bill)
 				if bill.is_bill?
 					try_count = 0
-					log.info("#{current_bill} is a valid bill")
+					GitGov::log.info("#{current_bill} is a valid bill")
 					bill.save
 				else
 					try_count += 1
 					if try_count > 100
-						log.info("#{current_bill-1} was the last bill for download")
+						GitGov::log.info("#{current_bill-1} was the last bill for download")
 						break
 					end
 				end
@@ -45,23 +43,16 @@ namespace :seattle do
 			end
 		end
 
-		desc "Test HTML"
-		task :html, [] => :environment do |task, args| 
-			repo = GitGov::Repo.new(REPO_BASE)
-			Dir["#{REPO_BASE}/bill/*.md"].each do |file|
-				GitGov.log.info "Extracting Metadata for #{file}"
-				bill_number = File.basename(file,'.md')
-				bill = GitGov::Models::SeattleBill.new(bill_number,repo)
-				if bill.normalize_header[:extra_fields]
-					bill.normalize_header[:extra_fields].each do |field|
-
-						case field
-						when /\*\(.*\)\*/
-						when /\[\(.*\)\]\(.*\)/
-						else 
-							GitGov.log.warn "Extra Info: #{field.inspect}"
-							puts field
-						end
+		desc "Extract Metadata"
+		task :metadata, [] => :environment do |task, args| 
+			#repo = GitGov::Repos::Seattle.new
+			Dir["#{REPO_BASE}/bill/*"].each do |dir|
+				if File.directory? dir
+					Dir["#{dir}/*.md"].each do |file|
+						GitGov::log.info "Extracting Metadata for #{file}"
+						bill_number = File.basename(file,'.md')
+						bill = GitGov::Models::SeattleBill.new(bill_number)
+						bill.save_metadata
 					end
 				end
 			end
@@ -69,5 +60,6 @@ namespace :seattle do
 		end
 
 	end
+
 end
 

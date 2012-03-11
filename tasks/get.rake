@@ -14,8 +14,7 @@ namespace :seattle do
 
 		desc "Pull a bill from the accessors office"
 		task :pull, [:bill] => :environment do |task, args|
-			repo = GitGov::Repo.new(REPO_BASE)
-			bill = GitGov::Models::SeattleBill.new(args[:bill],repo)
+			bill = GitGov::Models::SeattleBill.new(args[:bill])
 			bill.save
 		end
 

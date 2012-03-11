@@ -63,7 +63,7 @@ module GitGov
       end
 
       def save
-        repo.save(location(:relative),markdown)
+        repo.save(location(:relative),markdown(:remote))
       end
 
       def is_bill?

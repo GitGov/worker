@@ -182,6 +182,19 @@ module GitGov
         }
       end
 
+      def location(type)
+
+        case type
+
+        when :relative
+          File.join(@type.to_s,@key.to_i.floor,"#{@key}.md")
+        when :repo
+          File.join(repo.repo_path,location(:relative))
+        else
+          raise NotImplemented, "#{type} is not a valid location type"
+        end
+      end
+
 
     end
   end

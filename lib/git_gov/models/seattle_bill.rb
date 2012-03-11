@@ -182,7 +182,7 @@ module GitGov
           :date_filed => Proc.new { |i| DateTime.parse(i) },
           :date_of_signature => Proc.new { |i| DateTime.parse(i) },
           :date_introduced => Proc.new { |i| DateTime.parse(i) },
-          :index_terms => Proc.new { |i| i.split(',').map { |t| t.split('-').collect{ |tm| tm.chmop.rstrip.lstrip }.join(" ") } },
+          :index_terms => Proc.new { |i| i.split(',').map { |t| t.split('-').collect{ |tm| tm.chomp.rstrip.lstrip }.join(" ") } },
           :fiscal_note => Proc.new { |i| i.eql?('(No fiscal note available at this time)') ? nil : i },
           :committee => Proc.new { |i| i.chomp.rstrip.lstrip },
           :sponsor => Proc.new { |i| i.chomp.rstrip.lstrip },

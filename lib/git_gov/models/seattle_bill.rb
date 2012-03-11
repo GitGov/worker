@@ -138,11 +138,11 @@ module GitGov
 
       end
 
-      def save_metadata
+      def save_metadata(overwrite = false)
         md = metadata_location(:repo)
         puts md
         FileUtils.mkdir_p( File.dirname(md) ) unless File.directory? File.dirname(md)
-        File.open(md, 'w') {|f| f.write(normalize_header[:metadata].to_json) }
+        File.open(md, 'w') {|f| f.write(normalize_header[:metadata].to_json) } if overwrite
       end
 
       private

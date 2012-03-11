@@ -46,7 +46,7 @@ namespace :seattle do
 		desc "Extract Metadata"
 		task :metadata, [] => :environment do |task, args| 
 			#repo = GitGov::Repos::Seattle.new
-			Dir["#{REPO_BASE}/bill/*"].each do |dir|
+			Dir["#{GitGov.repo_list['repo']['seattle']}/bill/*"].each do |dir|
 				if File.directory? dir
 					Dir["#{dir}/*.md"].each do |file|
 						GitGov::log.info "Extracting Metadata for #{file}"

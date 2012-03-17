@@ -18,7 +18,7 @@ module GitGov
         item_handle = File.open(item_path,'w')
         item_handle.write(contents)
         item_handle.close
-        repo.add(path)
+        #repo.add(path)
 
       end
 

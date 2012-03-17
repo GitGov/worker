@@ -25,9 +25,15 @@ module GitGov
       def markdown(source = nil)
 
         # If the user has not specified a source, set it tho the most efficient source
-        source = source.nil? and has_repo_copy? ? :local : :remote
+        if source.nil?
+          if has_repo_copy?
+            source = :local 
+          else
+            source = :remote
+          end
+        end
 
-        if source.eql? :remote or has_repo_copy? != true
+        if source.eql? :remote 
           doc = get_doc
 
           content = doc.xpath("//*[@id='content_results']")
@@ -52,6 +58,10 @@ module GitGov
 
       end
 
+      def gfm(source = :remote)
+        markdown(source).each_line.collect { |p| p.gsub( /(\\)?\n/, "  \n")}.join()
+      end
+
       def html
         if has_repo_copy?
           html = `cat #{location(:repo)} | pandoc -t html -f markdown `
@@ -62,8 +72,8 @@ module GitGov
         html
       end
 
-      def save
-        repo.save(location(:relative),markdown(:remote))
+      def save(source = :remote)
+        repo.save(location(:relative),gfm(source))
       end
 
       def is_bill?
@@ -128,9 +138,9 @@ module GitGov
         metadata_transform.each do |header, proc|
           GitGov.log.debug "Transform: #{header} => '#{rtn_headers[header]}'" if rtn_headers[header]
           begin
-            rtn_headers[header] = proc.call(rtn_headers[header]) if rtn_headers[header]
+            rtn_headers[header] = proc.call(rtn_headers[header].chomp.lstrip.rstrip) if rtn_headers[header]
           rescue Exception => e
-            GitGov.log.error "Exception: #{header}, #{e.class}, #{e.message}"
+            GitGov.log.error "Exception: #{@key} - #{header}, #{e.class}, #{e.message} - '#{rtn_headers[header]}'"
             GitGov.log.error rtn_headers[header] if rtn_headers[header] 
           end
         end
@@ -140,37 +150,36 @@ module GitGov
 
       def save_metadata(overwrite = false)
         md = metadata_location(:repo)
-        puts md
         FileUtils.mkdir_p( File.dirname(md) ) unless File.directory? File.dirname(md)
         File.open(md, 'w') {|f| f.write(normalize_header[:metadata].to_json) }
       end
 
       private
       def is_hrule?(line)
-        line.chomp.eql? "* * * * *"
+        line.chomp.lstrip.rstrip.eql? "* * * * *"
       end
 
       def metadata_map
         { :bill_number => /^\*\*Council Bill Number: \[\]\(#h0\)\[\]\(#h2\)(?<h_val>\d+)\*\*/,
           :ordinance_number => /^\*\*Ordinance Number: (?<h_val>\d+)\*\*/,
           :status => /^\*\*Status:\*\* (?<h_val>\w+) \\/,
-          :date_passed => /^\*\*Date passed by Full Council:\*\* (?<h_val>\w+ \d+, \d+) \\/,
-          :date_filed => /^\*\*Date filed with the City Clerk:\*\* (?<h_val>\w+ \d+, \d+) \\/,
+          :date_passed => /^\*\*Date passed by Full Council:\*\* (?<h_val>\w+ \d+, \d+) /,
+          :date_filed => /^\*\*Date filed with the City Clerk:\*\* (?<h_val>\w+ \d+, \d+) /,
           :date_of_signature => /\*\*Date of Mayor's signature:\*\*((?<h_val>\s\w+ \d+, \d+)|(?<h_val>\s+))/,
-          :date_introduced => /^\*\*Date introduced\/referred to committee:\*\* (?<h_val>\w+ \d+, \d+) \\/,
+          :date_introduced => /^\*\*Date introduced\/referred to committee:\*\* (?<h_val>\w+ \d+, \d+) /,
           :index_terms => /^\*\*Index Terms:\*\* (?<h_val>.*)/,
           :references => /^\*\*References\/Related Documents:\*\* (?<h_val>.*)/,
           :fiscal_note => /^\*\*Fiscal Note:\*\* (\*(?<h_val>.*)\*|(?<h_val>.*))/,
           :summary => /^(?<h_val>([a-zA-Z]|[0-9]).*)/,
-          :committee => /^\*\*Committee:\*\*(?<h_val>.*) \\/,
-          :sponsor => /^\*\*Sponsor:\*\*(?<h_val>.*) \\/,
-          :vote => /^\*\*Vote:\*\* (?<h_val>.*) \\/,
-          :electronic_copy => /^\*\*Electronic Copy:\*\* (?<h_val>.*)/,
+          :committee => /^\*\*Committee:\*\*(?<h_val>.*) /,
+          :sponsor => /^\*\*Sponsor:\*\*(?<h_val>.*) /,
+          :vote => /^\*\*Vote:\*\* (?<h_val>.*) /,
+          :electronic_copy => /^\*\*Electronic Copy: ?\*\* (?<h_val>.*)/,
           :note => /^\*\*Note:\*\* (?<h_val>.*)/,
-          :status => /\*\*Status:\*\* ((?<h_val>.*) ?\\\\?)/,
+          :status => /\*\*Status:\*\* ((?<h_val>.*) ?)/,
           :committee_vote => /^\*\*Committee Vote:\*\* (?<h_val>.*) (\\{1,2})?/,
           :committee_recommendation => /^\*\*Committee Recommendation:\*\* (?<h_val>.*) \\?/,
-          :date_of_committee_recommendation => /^\*\*Date of Committee Recommendation:\*\* (?<h_val>.*) \\?/ 
+          :date_of_committee_recommendation => /^\*\*Date of Committee Recommendation:\*\* (?<h_val>.*) / 
         }
       end
 
@@ -180,7 +189,7 @@ module GitGov
           :status => Proc.new { |i| i.downcase.chomp.lstrip.rstrip },
           :date_passed => Proc.new { |i| DateTime.parse(i) },
           :date_filed => Proc.new { |i| DateTime.parse(i) },
-          :date_of_signature => Proc.new { |i| DateTime.parse(i) },
+          :date_of_signature => Proc.new { |i| (i.empty? or i.nil?) ? nil : DateTime.parse(i) },
           :date_introduced => Proc.new { |i| DateTime.parse(i) },
           :index_terms => Proc.new { |i| i.split(',').map { |t| t.split('-').collect{ |tm| tm.chomp.rstrip.lstrip }.join(" ") } },
           :fiscal_note => Proc.new { |i| i.eql?('(No fiscal note available at this time)') ? nil : i },
@@ -205,7 +214,7 @@ module GitGov
         case type
 
         when :relative
-          File.join(@type.to_s,bucket,'metadata', "#{@key}.json")
+          File.join(@type.to_s,bucket, "#{@key}.json")
         when :repo
           File.join(repo.repo_path,metadata_location(:relative))
         else

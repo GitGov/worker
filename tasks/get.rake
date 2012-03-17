@@ -1,4 +1,5 @@
 require 'json'
+
 class BillNotFoundException < RuntimeError
 
 end
@@ -44,18 +45,56 @@ namespace :seattle do
 
 		desc "Extract Metadata"
 		task :metadata, [] => :environment do |task, args| 
-			#repo = GitGov::Repos::Seattle.new
+			repo = GitGov::Repos::Seattle.new
 			Dir["#{GitGov.repo_list['repo']['seattle']}/bill/*"].each do |dir|
 				if File.directory? dir
 					Dir["#{dir}/*.md"].each do |file|
-						GitGov::log.info "Extracting Metadata for #{file}"
+			  		GitGov::log.info "Extracting Metadata for #{file}"
 						bill_number = File.basename(file,'.md')
+
 						bill = GitGov::Models::SeattleBill.new(bill_number)
 						bill.save_metadata
 					end
 				end
 			end
 	
+		end
+
+		desc "Convert"
+		task :convert, [] => :environment do |task, args|
+
+			Dir["#{GitGov.repo_list['repo']['seattle']}/bill/*"].each do |dir|
+				if File.directory? dir
+					Dir["#{dir}/*.md"].each do |file|
+						GitGov::log.info "Converting to GFM #{file}"
+						bill_number = File.basename(file,'.md')
+						bill = GitGov::Models::SeattleBill.new(bill_number)
+						bill.save(:local)
+					end
+				end
+			end
+		end
+
+		desc "Generate Document Index"
+		task :doc_index, [] => :environment do |taks, args|
+			index = []
+			Dir["#{GitGov.repo_list['repo']['seattle']}/bill/*"].each do |dir|
+				if File.directory? dir
+					Dir["#{dir}/metadata/*.json"].each do |file|
+						begin 
+							bill_metadata = JSON.parse(File.read(file))
+							document = {}
+							document[:status] = bill_metadata['status']
+							document[:text] = File.join( File.dirname(File.dirname(file)), "#{File.basename(file,'.json')}.md")
+							index[bill_metadata['bill_number']] = document
+						rescue Exception => e
+							puts "Exception: #{file} #{e.message}"
+						end
+					end
+				end
+			end
+			puts index
+
 		end
 
 	end

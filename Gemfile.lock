@@ -2,8 +2,10 @@ GEM
   remote: http://rubygems.org/
   specs:
     git (1.2.5)
-    nokogiri (1.5.0)
-    nokogiri (1.5.0-java)
+    json (1.6.5)
+    json (1.6.5-java)
+    nokogiri (1.5.2)
+    nokogiri (1.5.2-java)
 
 PLATFORMS
   java
@@ -11,4 +13,5 @@ PLATFORMS
 
 DEPENDENCIES
   git
+  json
   nokogiri
